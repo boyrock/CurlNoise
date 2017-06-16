@@ -105,9 +105,6 @@ public class Instancing : MonoBehaviour {
     {
     }
 
-    [SerializeField]
-    bool onCurlNoise;
-
     [Range(0,1000)]
     int time;
 
@@ -125,12 +122,9 @@ public class Instancing : MonoBehaviour {
             kernel.Dispatch(0, count / 8 + (count % 8), 1, 1);
         }
 
-        if (onCurlNoise)
-        {
-            kernel.SetBuffer(1, "_initPosBuffer", posBuf1);
-            kernel.SetBuffer(1, "_posBuffer", posBuf);
-            kernel.Dispatch(1, count / 8 + (count % 8), 1, 1);
-        }
+        kernel.SetBuffer(1, "_initPosBuffer", posBuf1);
+        kernel.SetBuffer(1, "_posBuffer", posBuf);
+        kernel.Dispatch(1, count / 8 + (count % 8), 1, 1);
 
         mat.SetBuffer("_posBuffer", posBuf);
 
