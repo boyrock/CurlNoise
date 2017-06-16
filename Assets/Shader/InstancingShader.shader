@@ -58,7 +58,7 @@
 			
 			fixed4 frag (v2f i) : SV_Target
 			{
-				float3 color = hsb2rgb(float3(0.5, snoise(i.pos.xy * 0.04),0.4 ));
+				float3 color = hsb2rgb(float3(snoise(i.pos.xy * 0.0009), snoise(i.pos.xy * 0.0007),0.6 ));
 				return float4(color, 1);
 			}
 			ENDCG
