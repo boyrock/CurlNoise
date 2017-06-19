@@ -65,7 +65,7 @@
 				float3 pos = _posBuffer[instanceID];
 
 				v2f o;
-				v.vertex.z *= (noise(instanceID * pos.xyz) * _ZScale);
+				v.vertex.z *= (noise(instanceID * pos.z) * 5);
 
 				float rotateAngle = noise(instanceID) * 10 + _Time.x * 100;
 				v.vertex.xyz = RotateZ(v.vertex.xyz, rotateAngle);
