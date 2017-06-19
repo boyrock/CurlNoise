@@ -3,8 +3,8 @@
 #pragma kernel Update
 #include "Common/SimplexNoise3D.cginc"
 
-StructuredBuffer<float3> _initPosBuffer;
-RWStructuredBuffer<float3> _posBuffer;
+StructuredBuffer<float4> _initPosBuffer;
+RWStructuredBuffer<float4> _posBuffer;
 float _time;
 float3 _velocity;
 float _seed;
@@ -26,8 +26,7 @@ float3 snoiseVec3(float3 x) {
 }
 
 float3 curlNoise(float3 p) {
-	const float e = 0.001;// 0.0009765625;
-	//const float e2 = 2.0 * e;
+	const float e = 0.4;// 0.0009765625;
 
 	float3 dx = float3(e, 0.0, 0.0);
 	float3 dy = float3(0.0, e, 0.0);
@@ -57,8 +56,6 @@ void ResetPosition(uint3 id : SV_DispatchThreadID)
 [numthreads(8,1,1)]
 void Update(uint3 id : SV_DispatchThreadID)
 {
-	if(_time > 0)
-		_posBuffer[id.x] += float3(-1,0,0) * _time * 0.001 + curlNoise(((_posBuffer[id.x]) + _seed) * 0.01);// float3(0, 20 * cnoise(_time * 0.6 + _initPosBuffer[id.x].xz * 0.01), 0);
-	//_posBuffer[id.x] += _initPosBuffer[id.x] + float3(30 * fbm(_time * 0.6 + _initPosBuffer[id.x].xz * 0.01, 5), 20 * fbm(_time * 0.6 + _initPosBuffer[id.x].xz * 0.01, 5), 0);
+	_posBuffer[id.x] += float4(curlNoise(((_posBuffer[id.x].xyz) + _seed) * 0.009), 0);
 }
 

@@ -17,16 +17,17 @@ public class Instancing : MonoBehaviour {
     [SerializeField]
     Mesh mesh;
 
-    Material _mat;
-    Material mat
-    {
-        get
-        {
-            if (_mat == null)
-                _mat = new Material(instancedShader);
-            return _mat;
-        }
-    }
+    [SerializeField]
+    Material mat;
+    //Material mat
+    //{
+    //    get
+    //    {
+    //        if (_mat == null)
+    //            _mat = new Material(instancedShader);
+    //        return _mat;
+    //    }
+    //}
 
     [SerializeField]
     Bounds bounds;
@@ -34,8 +35,10 @@ public class Instancing : MonoBehaviour {
     ComputeBuffer argBuf;
     ComputeBuffer posBuf;
     ComputeBuffer posBuf1;
+    ComputeBuffer colorBuf;
 
-    Vector3[] positions;
+    Vector4[] positions;
+    Vector3[] colors;
 
     [SerializeField]
     ComputeShader kernel;
@@ -45,6 +48,7 @@ public class Instancing : MonoBehaviour {
     Shader instancedShader;
 
     MaterialPropertyBlock block;
+    public Gradient gradientColor;
 
     // Use this for initialization
     void Start ()
@@ -53,7 +57,7 @@ public class Instancing : MonoBehaviour {
         block = new MaterialPropertyBlock();
         block.SetFloat("_UniqueID", Random.value);
 
-        instancedShader = Shader.Find("Hidden/InstancingShader");
+        instancedShader = Shader.Find("Hidden/InstancedSurfaceShader");
 
         InitArgumentsBuffer();
 
@@ -61,14 +65,31 @@ public class Instancing : MonoBehaviour {
 
         InitPositionBuffer();
 
+        InitColorBuffer();
+
         InitKernel();
+    }
+
+    private void InitColorBuffer()
+    {
+        var vector3_stride = Marshal.SizeOf(typeof(Vector3));
+        colorBuf = new ComputeBuffer(count, vector3_stride);
+
+        colors = new Vector3[100];
+        for (int i = 0; i < 100; i++)
+        {
+            var col = gradientColor.Evaluate(i / 100f);
+            colors[i] = new Vector3(col.r, col.g, col.b);
+        }
+
+        colorBuf.SetData(colors);
     }
 
     private void InitPositionBuffer()
     {
-        var vector3_stride = Marshal.SizeOf(typeof(Vector3));
-        posBuf = new ComputeBuffer(count, vector3_stride);
-        posBuf1 = new ComputeBuffer(count, vector3_stride);
+        var vector4_stride = Marshal.SizeOf(typeof(Vector4));
+        posBuf = new ComputeBuffer(count, vector4_stride);
+        posBuf1 = new ComputeBuffer(count, vector4_stride);
 
         posBuf.SetData(positions);
         posBuf1.SetData(positions);
@@ -76,21 +97,13 @@ public class Instancing : MonoBehaviour {
 
     private void InitPosition()
     {
-        positions = new Vector3[count];
-        
-        //int n = 0;
-        //for (int i = 0; i < column; i++)
-        //{
-        //    for (int j = 0; j < row; j++)
-        //    {
-        //        positions[n] = new Vector3(i, 0, j);
-        //        n++;
-        //    }
-        //}
+        positions = new Vector4[count];
 
         for (int i = 0; i < count; i++)
         {
-            positions[i] = Random.insideUnitCircle * 30;
+            float size = Random.Range(2f, 6f);
+            var pos = Random.insideUnitSphere * 50;
+            positions[i] =  new Vector4(pos.x, pos.y, pos.z, size);
         }
     }
 
@@ -113,21 +126,39 @@ public class Instancing : MonoBehaviour {
 
         kernel.SetFloat("_time", Time.time);
 
-        if(Input.GetKeyDown(KeyCode.R))
+        if (Input.GetKeyDown(KeyCode.R))
         {
             kernel.SetFloat("_seed", Random.value * 1000);
 
-            kernel.SetBuffer(0, "_initPosBuffer", posBuf1);
             kernel.SetBuffer(0, "_posBuffer", posBuf);
+            kernel.SetBuffer(0, "_initPosBuffer", posBuf1);
             kernel.Dispatch(0, count / 8 + (count % 8), 1, 1);
         }
 
-        kernel.SetBuffer(1, "_initPosBuffer", posBuf1);
         kernel.SetBuffer(1, "_posBuffer", posBuf);
         kernel.Dispatch(1, count / 8 + (count % 8), 1, 1);
 
+        mat.SetMatrix("_LocalToWorld", transform.localToWorldMatrix);
+        mat.SetMatrix("_WorldToLocal", transform.worldToLocalMatrix);
+
         mat.SetBuffer("_posBuffer", posBuf);
+
+        mat.SetBuffer("_colorBuffer", colorBuf);
+        mat.SetFloat("_RotateAngle", Mathf.Deg2Rad * rotateAngle);
 
         Graphics.DrawMeshInstancedIndirect(mesh, 0, mat, bounds, argBuf, 0, block);
 	}
+
+    [SerializeField]
+    [Range(0,360)]
+    float rotateAngle;
+
+    void OnDisable()
+    {
+        if (posBuf != null) posBuf.Release();
+        posBuf = null;
+
+        if (argBuf != null) argBuf.Release();
+        argBuf = null;
+    }
 }
