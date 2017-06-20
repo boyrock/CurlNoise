@@ -31,6 +31,14 @@ float3 RotateZ(float3 p, float angle)
     return float3(c*p.x + s*p.y, -s*p.x + c*p.y, p.z);
 }
 
+float3 Rotate(float3 p, float angle)
+{
+	p = RotateX(p, angle);
+	p = RotateY(p, angle);
+	p = RotateZ(p, angle);
+
+	return p;
+}
 
 // a & b must be normalized
 float AngleBetween(float3 a, float3 b)

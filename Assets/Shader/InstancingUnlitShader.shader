@@ -1,10 +1,12 @@
-﻿Shader "Custom/InstancingUnlitShader"
+﻿// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
+
+Shader "Custom/InstancingUnlitShader"
 {
 	Properties
 	{
 		_MainTex ("Texture", 2D) = "white" {}
 		_EdgeColor("EdgeColor", Color) = (1,1,1,1)
-		_ZScale("ZScale", Range(1,10)) = 1
+		_Scale("Scale", Range(1,10)) = 1
 	}
 		SubShader
 	{
@@ -25,8 +27,11 @@
 			#include "Common/SimplexNoise2D.cginc"
 			#include "Common/Color.cginc"
 			#include "Common/Math.cginc"
+			#include "Common/Quaternion.cginc"
+			#include "Particle.cginc"
 
-			StructuredBuffer<float3> _posBuffer;
+			StructuredBuffer<GPUParticle> _particleBuffer;
+			StructuredBuffer<ParticleGlobal> _globalBuffer;
 			StructuredBuffer<float3> _colorBuffer;
 
 			float rand(float n) { return frac(sin(n) * 43758.5453123); }
@@ -58,20 +63,33 @@
 			sampler2D _MainTex;
 			float4 _MainTex_ST;
 			float4 _EdgeColor;
-			float _ZScale;
+			float _Scale;
 			
-			v2f vert (appdata_full v, uint instanceID : SV_InstanceID)
+			v2f vert (appdata_full v, uint instanceID : SV_InstanceID, uint vid : SV_VertexID)
 			{
-				float3 pos = _posBuffer[instanceID];
+				float3 pos = _particleBuffer[instanceID].pos;
+				float lifeTime = _particleBuffer[instanceID].lifeTime;
 
 				v2f o;
-				v.vertex.z *= (noise(instanceID * pos.z) * 5);
+				//v.vertex.z *= (noise(pos.z) * 5);
 
 				float rotateAngle = noise(instanceID) * 10 + _Time.x * 100;
-				v.vertex.xyz = RotateZ(v.vertex.xyz, rotateAngle);
+				if (lifeTime <= 0)
+				{
+					v.vertex.xyz = 0;
+				}
+				else 
+				{
+					v.vertex.xyz = Rotate(v.vertex.xyz, rotateAngle);
+					//v.vertex.xyz = GetRandomRotation(v.texcoord).xyz;
+	/*				v.vertex.xyz = Rotate(v.vertex.xyz, rotateAngle);
+					v.vertex.xyz = RotateY(v.vertex.xyz, rotateAngle * 0.5f);
+					v.vertex.xyz = RotateZ(v.vertex.xyz, rotateAngle * 0.25f);*/
+				}
+
 				v.normal = RotateZ(v.normal, rotateAngle);
 
-				float3 localPosition = v.vertex.xyz * 10.2f;// *pos.w;
+				float3 localPosition = v.vertex.xyz * (2 + noise(instanceID * 2) * _Scale);// *pos.w;
 				float3 worldPosition = pos.xyz + localPosition;
 				float3 worldNormal = v.normal;
 
@@ -80,11 +98,14 @@
 				float3 diffuse = (ndotl * _LightColor0.rgb);
 				float3 color = v.color;
 
-				o.pos = mul(UNITY_MATRIX_VP, float4(worldPosition, 1.0f));
+				o.pos = UnityObjectToClipPos(float4(worldPosition, 1.0f));
 				o.uv = TRANSFORM_TEX(v.texcoord, _MainTex);
 				o.ambient = ambient;
 				o.diffuse = diffuse;
-				o.color = color;
+
+				float f = vid;
+				//o.color = hsb2rgb(float3(noise(instanceID), 0.2, 1));
+				o.color = _colorBuffer[noise(instanceID) * 100];
 				o.instanceID = instanceID;
 				TRANSFER_SHADOW(o)
 				return o;
@@ -94,16 +115,15 @@
 			{
 				fixed shadow = SHADOW_ATTENUATION(i);
 				//fixed4 albedo = tex2D(_MainTex, i.uv);
-				fixed3 col = _colorBuffer[noise(i.instanceID) * 100];
+				fixed3 col = i.color;
 				fixed4 albedo = float4(col, 1);
 
 				float3 lighting = i.diffuse * shadow + i.ambient;
-				fixed4 output = fixed4(hsb2rgb(float3(noise(i.instanceID),0.2,1)) * lighting, albedo.w);
+				fixed4 output = fixed4(albedo.rgb * lighting, albedo.w);
 				UNITY_APPLY_FOG(i.fogCoord, output);
 				return output;
-
-			
 			}
+
 			ENDCG
 		}
 	}

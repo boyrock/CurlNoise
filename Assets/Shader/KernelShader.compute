@@ -1,13 +1,19 @@
 ﻿// Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel ResetPosition
-#pragma kernel Update
+#pragma kernel UpdatePosition
+#pragma kernel AddParticles
 #include "Common/SimplexNoise3D.cginc"
+#include "Particle.cginc"
 
 StructuredBuffer<float4> _initPosBuffer;
-RWStructuredBuffer<float4> _posBuffer;
+RWStructuredBuffer<GPUParticle> _particleBuffer;
+RWStructuredBuffer<GPUParticle> _newParticleBuffer;
+RWStructuredBuffer<ParticleGlobal> _globalBuffer;
+
 float _time;
 float3 _velocity;
 float _seed;
+float _deltaTime;
 
 float rand(float n) { return frac(sin(n) * 43758.5453123); }
 float noise(float p)
@@ -26,7 +32,7 @@ float3 snoiseVec3(float3 x) {
 }
 
 float3 curlNoise(float3 p) {
-	const float e = 0.4;// 0.0009765625;
+	const float e = 0.003;// 0.0009765625;
 
 	float3 dx = float3(e, 0.0, 0.0);
 	float3 dy = float3(0.0, e, 0.0);
@@ -50,12 +56,43 @@ float3 curlNoise(float3 p) {
 [numthreads(8, 1, 1)]
 void ResetPosition(uint3 id : SV_DispatchThreadID)
 {
-	_posBuffer[id.x] = _initPosBuffer[id.x];
+	_particleBuffer[id.x].pos = _initPosBuffer[id.x];
 }
 
 [numthreads(8,1,1)]
-void Update(uint3 id : SV_DispatchThreadID)
+void UpdatePosition(uint id : SV_DispatchThreadID)
 {
-	_posBuffer[id.x] += float4(curlNoise(((_posBuffer[id.x].xyz) + _seed) * 0.009), 0);
+	GPUParticle particle = _particleBuffer[id];
+
+	if (particle.lifeTime > 0)
+	{
+		particle.lifeTime -= _deltaTime;
+		particle.velocity += particle.accelation;
+		particle.pos += particle.velocity;
+		particle.pos += float4(curlNoise(((particle.pos)) * 0.03), 0);
+	}
+
+	particle.accelation = 0;
+
+	_particleBuffer[id] = particle;
+}
+
+[numthreads(8, 1, 1)]
+void AddParticles(uint id : SV_DispatchThreadID)
+{
+	if (id < _globalBuffer[0].numNewParticle)
+	{
+		float ud = _globalBuffer[0].numActiveParticle + id;
+
+		if (ud >= _globalBuffer[0].numMaxParticle)
+			ud = 0;
+
+		if (_particleBuffer[ud].lifeTime <= 0)
+		{
+			_particleBuffer[ud] = _newParticleBuffer[id];
+		}
+
+		_globalBuffer[0].numActiveParticle = ud + 1;
+	}
 }
 
