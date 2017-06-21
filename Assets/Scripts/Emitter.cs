@@ -25,13 +25,9 @@ public class Emitter : MonoBehaviour {
 	// Update is called once per frame
 	void Update () {
 
-        if (Input.GetMouseButton(0))
-        {
-            startPosition = Camera.main.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, -Camera.main.transform.position.z));
-        }
     }
 
-    public GPUParticle[] Emit(float range = 0)
+    public GPUParticle[] Emit(EmitShapeType shape, Vector3 centerPos, float size)
     {
         deltaTime += Time.deltaTime * count;
 
@@ -43,34 +39,39 @@ public class Emitter : MonoBehaviour {
 
         for (int i = 0; i < particles.Length; i++)
         {
-            var circlePoint = Random.insideUnitCircle * range;
-            particles[i].pos = startPosition + new Vector3(circlePoint.x, circlePoint.y, 0);
-            //particles[i].accelation = new Vector3(Random.Range(-0.1f, 0.1f), Random.Range(-0.1f, 0.1f), Random.Range(0f, -0.2f));
-            particles[i].accelation = new Vector3(0.1f,0,0);
+            particles[i].pos = centerPos + GetPoint(shape, size);
             particles[i].lifeTime = lifeTime;
         }
 
         return particles;
-
     }
-    public GPUParticle[] Emit(Vector3 point, Vector3 normal)
+
+    private Vector3 GetPoint(EmitShapeType shape, float size)
     {
-        deltaTime += Time.deltaTime * count;
+        Vector3 pos = Vector3.one;
 
-        int intDelta = (int)deltaTime;
-        deltaTime -= intDelta;
-        if (intDelta == 0) return null;
-
-        var particles = new GPUParticle[intDelta];
-
-        for (int i = 0; i < particles.Length; i++)
+        switch (shape)
         {
-            particles[i].pos = point;
-            particles[i].velocity = normal.normalized * velocity;// (normal + new Vector3(Random.value, Random.value, Random.value) * 3f).normalized;
-            particles[i].lifeTime = lifeTime;
+            case EmitShapeType.Ring:
+                float angle = Random.Range(0.0f, Mathf.PI * 2.0f);
+                var x = Mathf.Cos(angle) * size;
+                var y = Mathf.Sin(angle) * size;
+                pos = new Vector3(x, y, 0);
+
+                break;
+            case EmitShapeType.Circle:
+                pos = Random.insideUnitCircle * size;
+                break;
+            default:
+                break;
         }
 
-        return particles;
+        return pos;
+    }
 
+    public enum EmitShapeType
+    {
+        Ring,
+        Circle
     }
 }

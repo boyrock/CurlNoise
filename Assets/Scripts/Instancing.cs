@@ -200,25 +200,18 @@ public class Instancing : MonoBehaviour {
     // Update is called once per frame
     void Update ()
     {
-
-        if (Input.GetKeyDown(KeyCode.Q))
+        if (Input.GetMouseButton(1))
         {
-            Vector3[] points = new Vector3[100];
-            for (int i = 0; i < points.Length; i++)
-            {
-                float angle = Random.Range(0.0f, Mathf.PI * 2.0f);
-
-                var x = Mathf.Cos(angle) * 20;
-                var y = Mathf.Sin(angle) * 20;
-                points[i] = new Vector3(x, y, 0);
-            }
-
-            Emit(points);
+            var pos = Vector3.zero;
+            var newParticles = emitter.Emit(Emitter.EmitShapeType.Ring, pos, Random.Range(10,20));
+            AddParticles(newParticles);
         }
 
         if (Input.GetMouseButton(0))
         {
-            var newParticles = emitter.Emit();
+            var pos = Camera.main.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, -Camera.main.transform.position.z));
+
+            var newParticles = emitter.Emit(Emitter.EmitShapeType.Circle, pos, 0.5f);
             AddParticles(newParticles);
         }
 
@@ -235,37 +228,6 @@ public class Instancing : MonoBehaviour {
         Graphics.DrawMeshInstancedIndirect(mesh, 0, mat, bounds, argBuf, 0, block);
     }
 
-    void Emit(Vector3[] points)
-    {
-        for (int i = 0; i < points.Length; i++)
-        {
-            var pos = points[i];
-            var newParticles = emitter.Emit(pos, new Vector3(Random.Range(-0.1f, 0.1f), Random.Range(-0.1f, 0.1f), Random.Range(0f, 0f)));
-            AddParticles(newParticles);
-        }
-    }
-
-    //private IEnumerator Emit()
-    //{
-    //    while (true)
-    //    {
-    //        yield return null;
-
-    //        int triangleNum = this.GetComponent<MeshFilter>().mesh.triangles.Length / 3;
-
-    //        for (int i = 0; i < triangleNum; i++)
-    //        {
-    //            for (int j = 0; j < 1; j++)
-    //            {
-    //                Vector3 pos = GetPosition(i, new Vector3(Random.value, Random.value));
-    //                pos = transform.localToWorldMatrix.MultiplyPoint3x4(pos);
-    //                var newParticles = emitter.Emit(pos, GetNormal(i));
-
-    //                AddParticles(newParticles);
-    //            }
-    //        }
-    //    }
-    //}
 
     private void AddParticles(GPUParticle[] newParticles)
     {

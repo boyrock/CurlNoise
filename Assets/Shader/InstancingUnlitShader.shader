@@ -12,7 +12,8 @@ Shader "Custom/InstancingUnlitShader"
 	{
 		Tags { "RenderType" = "Opaque" }
 		LOD 100
-		Cull off
+		//Cull off
+		Blend One OneMinusSrcColor
 		Pass
 		{
 			CGPROGRAM
@@ -82,7 +83,7 @@ Shader "Custom/InstancingUnlitShader"
 				}
 				else 
 				{
-					//v.vertex.xyz = Rotate(v.vertex.xyz, rotateAngle);
+					v.vertex.xyz = Rotate(v.vertex.xyz, rotateAngle);
 					//v.vertex.xyz = GetRandomRotation(v.texcoord).xyz;
 	/*				v.vertex.xyz = Rotate(v.vertex.xyz, rotateAngle);
 					v.vertex.xyz = RotateY(v.vertex.xyz, rotateAngle * 0.5f);
@@ -91,7 +92,7 @@ Shader "Custom/InstancingUnlitShader"
 
 				v.normal = RotateZ(v.normal, rotateAngle);
 
-				float3 localPosition = v.vertex.xyz * (0.1 + noise(instanceID * 2) * _Scale);// *pos.w;
+				float3 localPosition = v.vertex.xyz * (0.01 + noise(instanceID * 2) * _Scale);// *pos.w;
 				float3 worldPosition = pos.xyz + localPosition;
 				float3 worldNormal = v.normal;
 
@@ -107,7 +108,7 @@ Shader "Custom/InstancingUnlitShader"
 
 				float f = vid;
 				//o.color = hsb2rgb(float3(noise(instanceID), 0.2, 1));
-				o.color = _colorBuffer[noise(instanceID) * 100];
+				o.color = _colorBuffer[noise(instanceID) * 100] * 1;
 				o.instanceID = instanceID;
 				TRANSFER_SHADOW(o)
 				return o;
@@ -115,13 +116,15 @@ Shader "Custom/InstancingUnlitShader"
 			
 			fixed4 frag (v2f i) : SV_Target
 			{
+				float lifeTime = _particleBuffer[i.instanceID].lifeTime;
+
 				fixed shadow = SHADOW_ATTENUATION(i);
 				fixed3 col = i.color;
 				fixed4 albedo = float4(col, 1);
 				//fixed4 albedo = tex2D(_MainTex, i.uv);
 
-				float3 lighting = 1;// i.diffuse * shadow + i.ambient;
-				fixed4 output = fixed4(albedo.rgb * lighting, albedo.w);
+				float3 lighting = i.diffuse * shadow + i.ambient;
+				fixed4 output = fixed4(albedo.rgb * lighting, clamp(lifeTime,0,1));
 				//UNITY_APPLY_FOG(i.fogCoord, output);
 				return output;
 			}
