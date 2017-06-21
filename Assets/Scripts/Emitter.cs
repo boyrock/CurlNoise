@@ -13,6 +13,10 @@ public class Emitter : MonoBehaviour {
     int lifeTime;
 
     Vector3 startPosition;
+
+    [SerializeField]
+    float velocity;
+
     // Use this for initialization
     void Start () {
 		
@@ -27,7 +31,7 @@ public class Emitter : MonoBehaviour {
         }
     }
 
-    public GPUParticle[] Emit()
+    public GPUParticle[] Emit(float range = 0)
     {
         deltaTime += Time.deltaTime * count;
 
@@ -39,9 +43,30 @@ public class Emitter : MonoBehaviour {
 
         for (int i = 0; i < particles.Length; i++)
         {
-            particles[i].pos = startPosition;
-            //particles[i].velocity = new Vector3(Random.Range(-1f, 1f), Random.Range(-1f, 1f), 0);
-            particles[i].accelation = new Vector3(Random.Range(-0.1f, 0.1f), Random.Range(-0.1f, 0.1f), Random.Range(0f, -2f));
+            var circlePoint = Random.insideUnitCircle * range;
+            particles[i].pos = startPosition + new Vector3(circlePoint.x, circlePoint.y, 0);
+            //particles[i].accelation = new Vector3(Random.Range(-0.1f, 0.1f), Random.Range(-0.1f, 0.1f), Random.Range(0f, -0.2f));
+            particles[i].accelation = new Vector3(0.1f,0,0);
+            particles[i].lifeTime = lifeTime;
+        }
+
+        return particles;
+
+    }
+    public GPUParticle[] Emit(Vector3 point, Vector3 normal)
+    {
+        deltaTime += Time.deltaTime * count;
+
+        int intDelta = (int)deltaTime;
+        deltaTime -= intDelta;
+        if (intDelta == 0) return null;
+
+        var particles = new GPUParticle[intDelta];
+
+        for (int i = 0; i < particles.Length; i++)
+        {
+            particles[i].pos = point;
+            particles[i].velocity = normal.normalized * velocity;// (normal + new Vector3(Random.value, Random.value, Random.value) * 3f).normalized;
             particles[i].lifeTime = lifeTime;
         }
 

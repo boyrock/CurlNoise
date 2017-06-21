@@ -32,7 +32,7 @@ float3 snoiseVec3(float3 x) {
 }
 
 float3 curlNoise(float3 p) {
-	const float e = 0.003;// 0.0009765625;
+	const float e = 0.0001;// 0.0009765625;
 
 	float3 dx = float3(e, 0.0, 0.0);
 	float3 dy = float3(0.0, e, 0.0);
@@ -67,9 +67,9 @@ void UpdatePosition(uint id : SV_DispatchThreadID)
 	if (particle.lifeTime > 0)
 	{
 		particle.lifeTime -= _deltaTime;
-		particle.velocity += particle.accelation;
+
+		particle.velocity = float3(curlNoise(particle.pos * 0.1)) * 0.1;
 		particle.pos += particle.velocity;
-		particle.pos += float4(curlNoise(((particle.pos)) * 0.03), 0);
 	}
 
 	particle.accelation = 0;

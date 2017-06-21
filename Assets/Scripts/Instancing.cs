@@ -15,6 +15,7 @@ public class Instancing : MonoBehaviour {
     int row;
 
     [SerializeField]
+    Mesh[] meshs;
     Mesh mesh;
 
     [SerializeField]
@@ -57,8 +58,20 @@ public class Instancing : MonoBehaviour {
 
     Emitter emitter;
 
+    Vector3[] vertices;
+    int[] triangles;
+    Vector3[] normals;
+
     private void Awake()
     {
+        var mf = this.GetComponent<MeshFilter>();
+        if(mf != null)
+        {
+            vertices = this.GetComponent<MeshFilter>().mesh.vertices;
+            triangles = this.GetComponent<MeshFilter>().mesh.triangles;
+            normals = this.GetComponent<MeshFilter>().mesh.normals;
+        }
+
         emitter = this.GetComponent<Emitter>();
     }
 
@@ -71,7 +84,11 @@ public class Instancing : MonoBehaviour {
 
         instancedShader = Shader.Find("Hidden/InstancedSurfaceShader");
 
+        mesh = meshs[0];
+
         InitArgumentsBuffer();
+        UpdateArgumentsData(0);
+
 
         globalData = new ParticleGlobal[1];
         globalData[0] = new ParticleGlobal();
@@ -81,6 +98,9 @@ public class Instancing : MonoBehaviour {
         InitParticleBuffer();
 
         InitColorBuffer();
+
+        //StartCoroutine(Emit());
+
     }
 
     private void InitColorBuffer()
@@ -127,16 +147,74 @@ public class Instancing : MonoBehaviour {
 
     private void InitArgumentsBuffer()
     {
+        argBuf = new ComputeBuffer(1, 5 * sizeof(uint), ComputeBufferType.IndirectArguments);
+    }
+
+    private void UpdateArgumentsData(int meshIndex)
+    {
+        mesh = meshs[meshIndex];
         argData = new uint[5] { mesh.GetIndexCount(0), (uint)count, 0, 0, 0 };
-        argBuf = new ComputeBuffer(1, argData.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
         argBuf.SetData(argData);
     }
 
-    [Range(0,1000)]
-    int time;
+    Vector3 GetPosition(int surfaceIdx, Vector3 uv)
+    {
+        Vector3 p1 = vertices[triangles[(surfaceIdx * 3)]];
+        Vector3 p2 = vertices[triangles[(surfaceIdx * 3) + 1]];
+        Vector3 p3 = vertices[triangles[(surfaceIdx * 3) + 2]];
+
+        float u = uv.x;// data[idx].xy.x;
+        float v = uv.y;// data[idx].xy.y;
+
+        if (u + v >= 1)
+        {
+            u = 1 - u;
+            v = 1 - v;
+        }
+
+        float a = 1 - u - v;
+        float b = u;
+        float c = v;
+
+        Vector3 pointOnMesh = a * p1 + b * p2 + c * p3;
+
+        return pointOnMesh;
+    }
+
+    Vector3 GetNormal(int idx)
+    {
+        Vector3 p1 = vertices[triangles[(idx * 3)]];
+        Vector3 p2 = vertices[triangles[(idx * 3) + 1]];
+        Vector3 p3 = vertices[triangles[(idx * 3) + 2]];
+
+        return GetNormal(p1, p2, p3);
+    }
+
+    Vector3 GetNormal(Vector3 a, Vector3 b, Vector3 c)
+    {
+        var side1 = b - a;
+        var side2 = c - a;
+        return Vector3.Cross(side1, side2);
+    }
 
     // Update is called once per frame
-    void Update () {
+    void Update ()
+    {
+
+        if (Input.GetKeyDown(KeyCode.Q))
+        {
+            Vector3[] points = new Vector3[100];
+            for (int i = 0; i < points.Length; i++)
+            {
+                float angle = Random.Range(0.0f, Mathf.PI * 2.0f);
+
+                var x = Mathf.Cos(angle) * 20;
+                var y = Mathf.Sin(angle) * 20;
+                points[i] = new Vector3(x, y, 0);
+            }
+
+            Emit(points);
+        }
 
         if (Input.GetMouseButton(0))
         {
@@ -148,24 +226,46 @@ public class Instancing : MonoBehaviour {
 
         kernel.SetFloat("_deltaTime", Time.deltaTime);
 
-        if (Input.GetKeyDown(KeyCode.R))
-        {
-            kernel.SetFloat("_seed", Random.value * 1000);
-
-            kernel.SetBuffer(0, "_posBuffer", posBuf);
-            kernel.Dispatch(0, count / 8 + (count % 8), 1, 1);
-        }
-
         kernel.SetBuffer(kernel.FindKernel("UpdatePosition"), "_particleBuffer", particleBuffer);
         kernel.Dispatch(kernel.FindKernel("UpdatePosition"), count / 8 + (count % 8), 1, 1);
 
         mat.SetBuffer("_particleBuffer", particleBuffer);
-
         mat.SetBuffer("_colorBuffer", colorBuf);
-        mat.SetFloat("_RotateAngle", Mathf.Deg2Rad * rotateAngle);
 
         Graphics.DrawMeshInstancedIndirect(mesh, 0, mat, bounds, argBuf, 0, block);
-	}
+    }
+
+    void Emit(Vector3[] points)
+    {
+        for (int i = 0; i < points.Length; i++)
+        {
+            var pos = points[i];
+            var newParticles = emitter.Emit(pos, new Vector3(Random.Range(-0.1f, 0.1f), Random.Range(-0.1f, 0.1f), Random.Range(0f, 0f)));
+            AddParticles(newParticles);
+        }
+    }
+
+    //private IEnumerator Emit()
+    //{
+    //    while (true)
+    //    {
+    //        yield return null;
+
+    //        int triangleNum = this.GetComponent<MeshFilter>().mesh.triangles.Length / 3;
+
+    //        for (int i = 0; i < triangleNum; i++)
+    //        {
+    //            for (int j = 0; j < 1; j++)
+    //            {
+    //                Vector3 pos = GetPosition(i, new Vector3(Random.value, Random.value));
+    //                pos = transform.localToWorldMatrix.MultiplyPoint3x4(pos);
+    //                var newParticles = emitter.Emit(pos, GetNormal(i));
+
+    //                AddParticles(newParticles);
+    //            }
+    //        }
+    //    }
+    //}
 
     private void AddParticles(GPUParticle[] newParticles)
     {
@@ -184,17 +284,10 @@ public class Instancing : MonoBehaviour {
         kernel.SetBuffer(kernel.FindKernel("AddParticles"), "_globalBuffer", particleGlobalDataBuffer);
         kernel.Dispatch(kernel.FindKernel("AddParticles"), newParticles.Length / 8 + 1, 1, 1);
 
-
-        //ParticleGlobal[] data = new ParticleGlobal[1];
         particleGlobalDataBuffer.GetData(globalData);
-        //Debug.Log("numActiveParticle length : " + globalData[0].numActiveParticle);
 
         newParticles = null;
     }
-
-    [SerializeField]
-    [Range(0,360)]
-    float rotateAngle;
 
     void OnDisable()
     {

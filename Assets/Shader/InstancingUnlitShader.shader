@@ -6,7 +6,7 @@ Shader "Custom/InstancingUnlitShader"
 	{
 		_MainTex ("Texture", 2D) = "white" {}
 		_EdgeColor("EdgeColor", Color) = (1,1,1,1)
-		_Scale("Scale", Range(1,10)) = 1
+		_Scale("Scale", Range(0,10)) = 1
 	}
 		SubShader
 	{
@@ -71,7 +71,9 @@ Shader "Custom/InstancingUnlitShader"
 				float lifeTime = _particleBuffer[instanceID].lifeTime;
 
 				v2f o;
-				//v.vertex.z *= (noise(pos.z) * 5);
+				//v.vertex.x *= 3;
+				//v.vertex.xy = 1 * 2.0 - float2(1.0, 1.0);
+				//v.vertex.zw = float2(0.0, 1.0);
 
 				float rotateAngle = noise(instanceID) * 10 + _Time.x * 100;
 				if (lifeTime <= 0)
@@ -80,7 +82,7 @@ Shader "Custom/InstancingUnlitShader"
 				}
 				else 
 				{
-					v.vertex.xyz = Rotate(v.vertex.xyz, rotateAngle);
+					//v.vertex.xyz = Rotate(v.vertex.xyz, rotateAngle);
 					//v.vertex.xyz = GetRandomRotation(v.texcoord).xyz;
 	/*				v.vertex.xyz = Rotate(v.vertex.xyz, rotateAngle);
 					v.vertex.xyz = RotateY(v.vertex.xyz, rotateAngle * 0.5f);
@@ -89,7 +91,7 @@ Shader "Custom/InstancingUnlitShader"
 
 				v.normal = RotateZ(v.normal, rotateAngle);
 
-				float3 localPosition = v.vertex.xyz * (2 + noise(instanceID * 2) * _Scale);// *pos.w;
+				float3 localPosition = v.vertex.xyz * (0.1 + noise(instanceID * 2) * _Scale);// *pos.w;
 				float3 worldPosition = pos.xyz + localPosition;
 				float3 worldNormal = v.normal;
 
@@ -114,13 +116,13 @@ Shader "Custom/InstancingUnlitShader"
 			fixed4 frag (v2f i) : SV_Target
 			{
 				fixed shadow = SHADOW_ATTENUATION(i);
-				//fixed4 albedo = tex2D(_MainTex, i.uv);
 				fixed3 col = i.color;
 				fixed4 albedo = float4(col, 1);
+				//fixed4 albedo = tex2D(_MainTex, i.uv);
 
-				float3 lighting = i.diffuse * shadow + i.ambient;
+				float3 lighting = 1;// i.diffuse * shadow + i.ambient;
 				fixed4 output = fixed4(albedo.rgb * lighting, albedo.w);
-				UNITY_APPLY_FOG(i.fogCoord, output);
+				//UNITY_APPLY_FOG(i.fogCoord, output);
 				return output;
 			}
 
